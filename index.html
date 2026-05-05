@@ -6,6 +6,7 @@
 <title>FinCtrl — Contas a Pagar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   :root{
@@ -60,7 +61,6 @@
   input:focus,select:focus,textarea:focus{border-color:var(--c-accent-mid)}
   textarea{resize:vertical;min-height:64px}
 
-  /* Multi-select empresa checkboxes */
   .emp-check-list{border:1px solid var(--c-border);border-radius:var(--r);padding:8px;display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto;background:var(--c-surface)}
   .emp-check-item{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:13px}
   .emp-check-item:hover{background:var(--c-surface2)}
@@ -79,7 +79,6 @@
   .badge-warn{background:var(--c-warn-light);color:var(--c-warn)}
   .badge-gray{background:var(--c-surface2);color:var(--c-text2);border:1px solid var(--c-border)}
 
-  /* Tags de empresa inline */
   .tags-wrap{display:flex;flex-wrap:wrap;gap:4px}
 
   .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:100;align-items:center;justify-content:center;padding:20px}
@@ -91,7 +90,6 @@
   .modal-close:hover{background:var(--c-surface2);color:var(--c-text)}
   .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--c-border)}
 
-  /* Filter bar melhorada */
   .filter-bar{background:var(--c-surface);border:1px solid var(--c-border);border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
   .filter-group{display:flex;flex-direction:column;gap:4px}
   .filter-group label{font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px}
@@ -114,11 +112,22 @@
   .stat-label{font-size:11px;color:var(--c-text3);font-weight:500;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 
   .trunc{max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
   .hint{font-size:11px;color:var(--c-text3);margin-top:2px}
+
+  /* Loading overlay */
+  .loading-overlay{position:fixed;inset:0;background:rgba(245,244,240,.85);z-index:300;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+  .loading-spinner{width:32px;height:32px;border:3px solid var(--c-border);border-top-color:var(--c-accent-mid);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading-text{font-size:13px;color:var(--c-text3)}
+  .loading-overlay.hidden{display:none}
 </style>
 </head>
 <body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Carregando dados...</div>
+</div>
 
 <div class="app-wrap">
   <aside class="sidebar">
@@ -181,43 +190,91 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ── Dados iniciais ────────────────────────────────────────────
-const db = {
-  fornecedores: [
-    { id: 1, nome: 'Energisa',   email: 'financeiro@energisa.com.br', cnpj: '00.864.214/0001-06', empresaIds: [1] },
-    { id: 2, nome: 'Vivo Fibra', email: 'pj@vivo.com.br',            cnpj: '02.558.157/0001-62', empresaIds: [1, 2] }
-  ],
-  tipos: [
-    { id: 1, nome: 'Energia Elétrica', obs: 'Conta mensal de energia elétrica' },
-    { id: 2, nome: 'Internet',         obs: 'Mensalidade do plano de fibra óptica' }
-  ],
-  empresas: [
-    { id: 1, nome: 'Empresa Alpha Ltda' },
-    { id: 2, nome: 'Beta Comércio S/A' }
-  ],
-  regras: [
-    { id: 1, nome: 'Boleto 5 dias úteis', desc: 'Pagar até 5 dias úteis antes do vencimento' },
-    { id: 2, nome: 'Débito Automático',   desc: 'Cobrança por débito automático em conta corrente' }
-  ],
-  despesas: [
-    { id: 1, fornecedorId: 1, tipoId: 1, empresaId: 1, vencimento: 10, doc: '', email: 'financeiro@energisa.com.br', obs: 'Conta mensal de energia elétrica', regraId: 1 },
-    { id: 2, fornecedorId: 2, tipoId: 2, empresaId: 1, vencimento: 15, doc: '', email: 'pj@vivo.com.br',            obs: 'Mensalidade do plano de fibra',    regraId: 2 },
-    { id: 3, fornecedorId: 2, tipoId: 2, empresaId: 2, vencimento: 10, doc: '', email: 'pj@vivo.com.br',            obs: 'Mensalidade do plano de fibra',    regraId: 1 }
-  ]
+// ── Supabase config ───────────────────────────────────────────
+const SUPABASE_URL = 'https://bmfnclyvvwvyefdopixv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_nMhnblRLoBo4nmSI-oiISQ_3-PGfVW-';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── Estado local ──────────────────────────────────────────────
+const db = { fornecedores: [], tipos: [], empresas: [], regras: [], despesas: [] };
+let curPage = 'dashboard', editId = null, editSection = null;
+let fEmp = 0, fVencDe = '', fVencAte = '';
+
+// ── Mapeamento tabelas Supabase → db local ────────────────────
+const TABLE_MAP = {
+  fornecedores: 'fornecedores',
+  tipos:        'tipos',
+  empresas:     'empresas',
+  regras:       'regras',
+  despesas:     'despesas'
 };
 
-const nextId = { fornecedores: 3, tipos: 3, empresas: 3, regras: 3, despesas: 4 };
-let curPage = 'dashboard', editId = null, editSection = null;
+// Converte registro do Supabase para formato interno
+function fromSupabase(sec, row) {
+  if (sec === 'fornecedores') {
+    return { id: row.id, nome: row.nome, email: row.email||'', cnpj: row.cnpj||'', empresaIds: row.empresa_ids||[] };
+  }
+  if (sec === 'tipos') {
+    return { id: row.id, nome: row.nome, obs: row.obs||'' };
+  }
+  if (sec === 'empresas') {
+    return { id: row.id, nome: row.nome };
+  }
+  if (sec === 'regras') {
+    return { id: row.id, nome: row.nome, desc: row.descricao||'' };
+  }
+  if (sec === 'despesas') {
+    return { id: row.id, fornecedorId: row.fornecedor_id, tipoId: row.tipo_id, empresaId: row.empresa_id,
+      vencimento: row.vencimento, doc: row.doc||'', email: row.email||'', obs: row.obs||'', regraId: row.regra_id };
+  }
+}
 
-// Filtros de despesas
-let fEmp = 0, fVencDe = '', fVencAte = '';
+// Converte formato interno para Supabase
+function toSupabase(sec, obj) {
+  if (sec === 'fornecedores') {
+    return { nome: obj.nome, email: obj.email||'', cnpj: obj.cnpj||'', empresa_ids: obj.empresaIds||[] };
+  }
+  if (sec === 'tipos') {
+    return { nome: obj.nome, obs: obj.obs||'' };
+  }
+  if (sec === 'empresas') {
+    return { nome: obj.nome };
+  }
+  if (sec === 'regras') {
+    return { nome: obj.nome, descricao: obj.desc||'' };
+  }
+  if (sec === 'despesas') {
+    return { fornecedor_id: obj.fornecedorId, tipo_id: obj.tipoId, empresa_id: obj.empresaId,
+      vencimento: obj.vencimento, doc: obj.doc||'', email: obj.email||'', obs: obj.obs||'', regra_id: obj.regraId||null };
+  }
+}
+
+// ── Carregar todos os dados do Supabase ───────────────────────
+async function loadAll() {
+  showLoading(true);
+  try {
+    const sections = ['empresas','tipos','regras','fornecedores','despesas'];
+    for (const sec of sections) {
+      const { data, error } = await sb.from(sec).select('*').order('id');
+      if (error) throw error;
+      db[sec] = (data||[]).map(row => fromSupabase(sec, row));
+    }
+  } catch(e) {
+    showToast('Erro ao carregar dados: ' + e.message, 'err');
+  }
+  showLoading(false);
+  render();
+}
+
+function showLoading(v) {
+  document.getElementById('loadingOverlay').classList.toggle('hidden', !v);
+}
 
 // ── Helpers ───────────────────────────────────────────────────
 function byId(arr, id) { return arr.find(x => x.id === id); }
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-// Paleta de cores para tags de empresa (por índice)
 const TAG_COLORS = [
   {bg:'#e8f0fa',c:'#1a3a5c'},{bg:'#e8f2ec',c:'#1a4a2e'},{bg:'#fdf5e8',c:'#7a4a0a'},
   {bg:'#fdf0f0',c:'#8b2222'},{bg:'#f3e8fd',c:'#4a1a7a'},{bg:'#e8fdfc',c:'#0a5c58'}
@@ -296,12 +353,12 @@ function renderDash() {
   </div>`;
 }
 
-// ── Fornecedores (com tags de empresa) ────────────────────────
+// ── Fornecedores ──────────────────────────────────────────────
 function renderFornecedores() {
   const rows = db.fornecedores;
   return `<div class="card" style="padding:0;overflow:hidden">
     ${rows.length === 0
-      ? `<div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">Nenhum fornecedor. Clique em "+ Adicionar".</div></div>`
+      ? `<div class="empty-state"><div class="empty-icon">○</div><div>Nenhum fornecedor. Clique em "+ Adicionar".</div></div>`
       : `<div class="table-wrap"><table>
           <thead><tr>
             <th>Nome</th><th>E-mail</th><th>CNPJ</th><th>Empresas Vinculadas</th><th style="width:100px">Ações</th>
@@ -325,20 +382,21 @@ function renderFornecedores() {
 }
 
 // ── Lista genérica ────────────────────────────────────────────
-function renderList(sec, cols, rowFn) {
+function renderList(sec, headers, rowFn) {
   const rows = db[sec];
   return `<div class="card" style="padding:0;overflow:hidden">
     ${rows.length === 0
-      ? `<div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">Nenhum registro ainda.<br>Clique em "+ Adicionar" para começar.</div></div>`
+      ? `<div class="empty-state"><div class="empty-icon">○</div><div>Nenhum registro. Clique em "+ Adicionar".</div></div>`
       : `<div class="table-wrap"><table>
-          <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}<th style="width:100px">Ações</th></tr></thead>
-          <tbody>${rows.map(r=>`<tr>
-            ${rowFn(r).map(v=>`<td>${v}</td>`).join('')}
-            <td><div style="display:flex;gap:4px">
-              <button class="btn btn-secondary btn-sm" onclick="openEdit('${sec}',${r.id})">Editar</button>
-              <button class="btn btn-danger btn-sm" onclick="del('${sec}',${r.id})">✕</button>
-            </div></td>
-          </tr>`).join('')}</tbody>
+          <thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}<th style="width:100px">Ações</th></tr></thead>
+          <tbody>${rows.map(r => {
+            const cols = rowFn(r);
+            return `<tr>${cols.map(c=>`<td>${c}</td>`).join('')}
+              <td><div style="display:flex;gap:4px">
+                <button class="btn btn-secondary btn-sm" onclick="openEdit('${sec}',${r.id})">Editar</button>
+                <button class="btn btn-danger btn-sm" onclick="del('${sec}',${r.id})">✕</button>
+              </div></td></tr>`;
+          }).join('')}</tbody>
         </table></div>`}
   </div>`;
 }
@@ -354,15 +412,12 @@ function renderDespesas() {
   const empOpts = db.empresas.map(e =>
     `<option value="${e.id}" ${fEmp==e.id?'selected':''}>${esc(e.nome)}</option>`).join('');
 
-  // Aplicar filtros
   let filtered = [...db.despesas];
   if (fEmp > 0) filtered = filtered.filter(d => d.empresaId == fEmp);
   const vDe  = fVencDe  !== '' ? +fVencDe  : null;
   const vAte = fVencAte !== '' ? +fVencAte : null;
   if (vDe  !== null) filtered = filtered.filter(d => d.vencimento >= vDe);
   if (vAte !== null) filtered = filtered.filter(d => d.vencimento <= vAte);
-
-  // Ordenar por vencimento
   filtered.sort((a,b) => a.vencimento - b.vencimento);
 
   const rows = filtered.map(d => {
@@ -412,10 +467,9 @@ function renderDespesas() {
     </div>
     <div class="filter-result">${filtered.length} registro(s) encontrado(s)</div>
   </div>
-
   <div class="card" style="padding:0;overflow:hidden">
     ${filtered.length === 0
-      ? `<div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">Nenhuma despesa encontrada com esses filtros.</div></div>`
+      ? `<div class="empty-state"><div class="empty-icon">○</div><div>Nenhuma despesa encontrada com esses filtros.</div></div>`
       : `<div class="table-wrap"><table>
           <thead><tr>
             <th>Fornecedor</th><th>Tipo de Despesa</th><th>Empresa</th>
@@ -500,7 +554,6 @@ function openModal() {
     </div>`;
 
   } else if (sec === 'despesas') {
-    // Ao selecionar empresa, filtra fornecedores vinculados
     const eOpts = db.empresas.map(e =>
       `<option value="${e.id}" ${rec&&rec.empresaId===e.id?'selected':''}>${esc(e.nome)}</option>`).join('');
     const selEmpId = rec ? rec.empresaId : (db.empresas[0]||{}).id;
@@ -555,7 +608,6 @@ function openModal() {
   document.getElementById('modal').classList.add('open');
 }
 
-// Atualiza lista de fornecedores ao trocar empresa no modal de despesa
 function updateFornSelect() {
   const empId = +document.getElementById('d_emp').value;
   const fornFiltrados = db.fornecedores.filter(f => !f.empresaIds || f.empresaIds.length===0 || f.empresaIds.includes(empId));
@@ -579,7 +631,7 @@ function fillEmailObs() {
 
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
 
-function saveModal() {
+async function saveModal() {
   const sec = editSection;
   let obj = {};
 
@@ -623,23 +675,42 @@ function saveModal() {
     };
   }
 
-  if (editId) {
-    Object.assign(byId(db[sec], editId), obj);
-    showToast('Registro atualizado!');
-  } else {
-    obj.id = nextId[sec]++;
-    db[sec].push(obj);
-    showToast('Registro salvo!');
+  const payload = toSupabase(sec, obj);
+  showLoading(true);
+  try {
+    if (editId) {
+      const { error } = await sb.from(sec).update(payload).eq('id', editId);
+      if (error) throw error;
+      Object.assign(byId(db[sec], editId), obj);
+      showToast('Registro atualizado!');
+    } else {
+      const { data, error } = await sb.from(sec).insert(payload).select().single();
+      if (error) throw error;
+      obj.id = data.id;
+      db[sec].push(obj);
+      showToast('Registro salvo!');
+    }
+  } catch(e) {
+    showToast('Erro ao salvar: ' + e.message, 'err');
   }
+  showLoading(false);
   closeModal();
   render();
 }
 
-function del(sec, id) {
+async function del(sec, id) {
   if (!confirm('Deseja excluir este registro?')) return;
-  db[sec] = db[sec].filter(x => x.id !== id);
+  showLoading(true);
+  try {
+    const { error } = await sb.from(sec).delete().eq('id', id);
+    if (error) throw error;
+    db[sec] = db[sec].filter(x => x.id !== id);
+    showToast('Registro excluído.');
+  } catch(e) {
+    showToast('Erro ao excluir: ' + e.message, 'err');
+  }
+  showLoading(false);
   render();
-  showToast('Registro excluído.');
 }
 
 function showToast(msg, type) {
@@ -655,7 +726,8 @@ document.getElementById('modal').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
 });
 
-render();
+// ── Inicializar ───────────────────────────────────────────────
+loadAll();
 </script>
 </body>
 </html>
