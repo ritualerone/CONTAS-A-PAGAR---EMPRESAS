@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinCtrl — Contas a Pagar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --c-bg:#f5f4f0;--c-surface:#ffffff;--c-surface2:#f0efe9;
+    --c-border:#d8d6cc;
+    --c-text:#1a1917;--c-text2:#5c5a54;--c-text3:#8a887f;
+    --c-accent:#1a4a2e;--c-accent-light:#e8f2ec;--c-accent-mid:#2d7a4f;
+    --c-danger:#8b2222;--c-danger-light:#fdf0f0;
+    --c-warn:#7a4a0a;--c-warn-light:#fdf5e8;
+    --c-tag:#1a3a5c;--c-tag-light:#e8f0fa;
+    --ff:'IBM Plex Sans',sans-serif;--fm:'IBM Plex Mono',monospace;
+    --r:6px;--shadow:0 1px 3px rgba(0,0,0,.08);
+  }
+  html,body{height:100%;font-family:var(--ff);background:var(--c-bg);color:var(--c-text);font-size:14px;line-height:1.5}
+
+  .app-wrap{display:flex;height:100vh;overflow:hidden}
+  .sidebar{width:224px;min-width:224px;background:var(--c-surface);border-right:1px solid var(--c-border);display:flex;flex-direction:column;overflow-y:auto}
+  .sidebar-header{padding:20px 16px 14px;border-bottom:1px solid var(--c-border)}
+  .sidebar-logo{font-size:12px;font-weight:600;color:var(--c-accent-mid);font-family:var(--fm);letter-spacing:1.2px;text-transform:uppercase}
+  .sidebar-title{font-size:19px;font-weight:600;margin-top:3px;letter-spacing:-.3px}
+  .nav-section{padding:12px 8px 4px}
+  .nav-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--c-text3);padding:0 8px;margin-bottom:4px}
+  .nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:400;color:var(--c-text2);transition:all .15s;border:none;background:none;width:100%;text-align:left}
+  .nav-item:hover{background:var(--c-surface2);color:var(--c-text)}
+  .nav-item.active{background:var(--c-accent-light);color:var(--c-accent);font-weight:500}
+  .nav-icon{width:16px;height:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px}
+
+  .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+  .topbar{padding:16px 24px;background:var(--c-surface);border-bottom:1px solid var(--c-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+  .page-title{font-size:17px;font-weight:600}
+  .page-sub{font-size:12px;color:var(--c-text3);margin-top:1px}
+  .content{flex:1;overflow-y:auto;padding:24px}
+
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;font-family:var(--ff)}
+  .btn-primary{background:var(--c-accent);color:#fff;border-color:var(--c-accent)}
+  .btn-primary:hover{background:var(--c-accent-mid)}
+  .btn-secondary{background:var(--c-surface);color:var(--c-text);border-color:var(--c-border)}
+  .btn-secondary:hover{background:var(--c-surface2)}
+  .btn-danger{background:var(--c-danger-light);color:var(--c-danger);border-color:transparent}
+  .btn-danger:hover{border-color:var(--c-danger)}
+  .btn-sm{padding:5px 10px;font-size:12px}
+
+  .card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:8px;padding:20px}
+  .card+.card{margin-top:16px}
+
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .form-grid.col1{grid-template-columns:1fr}
+  .form-full{grid-column:1/-1}
+  .form-group{display:flex;flex-direction:column;gap:4px}
+  label{font-size:12px;font-weight:500;color:var(--c-text2)}
+  input,select,textarea{font-family:var(--ff);font-size:13px;padding:8px 10px;border:1px solid var(--c-border);border-radius:var(--r);background:var(--c-surface);color:var(--c-text);outline:none;transition:border .15s;width:100%}
+  input:focus,select:focus,textarea:focus{border-color:var(--c-accent-mid)}
+  textarea{resize:vertical;min-height:64px}
+
+  /* Multi-select empresa checkboxes */
+  .emp-check-list{border:1px solid var(--c-border);border-radius:var(--r);padding:8px;display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto;background:var(--c-surface)}
+  .emp-check-item{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:13px}
+  .emp-check-item:hover{background:var(--c-surface2)}
+  .emp-check-item input[type=checkbox]{width:auto;cursor:pointer}
+
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{text-align:left;padding:9px 12px;background:var(--c-surface2);border-bottom:1px solid var(--c-border);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--c-text3);white-space:nowrap}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--c-border);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:var(--c-surface2)}
+
+  .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
+  .badge-green{background:var(--c-accent-light);color:var(--c-accent)}
+  .badge-blue{background:var(--c-tag-light);color:var(--c-tag)}
+  .badge-warn{background:var(--c-warn-light);color:var(--c-warn)}
+  .badge-gray{background:var(--c-surface2);color:var(--c-text2);border:1px solid var(--c-border)}
+
+  /* Tags de empresa inline */
+  .tags-wrap{display:flex;flex-wrap:wrap;gap:4px}
+
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:100;align-items:center;justify-content:center;padding:20px}
+  .modal-bg.open{display:flex}
+  .modal{background:var(--c-surface);border-radius:10px;padding:24px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+  .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+  .modal-title{font-size:16px;font-weight:600}
+  .modal-close{background:none;border:none;cursor:pointer;font-size:18px;color:var(--c-text3);padding:2px 8px;border-radius:4px;line-height:1}
+  .modal-close:hover{background:var(--c-surface2);color:var(--c-text)}
+  .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--c-border)}
+
+  /* Filter bar melhorada */
+  .filter-bar{background:var(--c-surface);border:1px solid var(--c-border);border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+  .filter-group{display:flex;flex-direction:column;gap:4px}
+  .filter-group label{font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px}
+  .filter-group select,.filter-group input{width:auto;min-width:150px;font-size:13px}
+  .filter-group input[type=number]{min-width:70px;max-width:80px}
+  .filter-divider{width:1px;height:36px;background:var(--c-border);align-self:flex-end;margin-bottom:2px}
+  .filter-result{font-size:12px;color:var(--c-text3);align-self:flex-end;padding-bottom:6px;white-space:nowrap}
+  .filter-range-wrap{display:flex;align-items:center;gap:6px}
+  .filter-range-wrap span{font-size:12px;color:var(--c-text3)}
+
+  .empty-state{text-align:center;padding:52px 24px;color:var(--c-text3)}
+  .empty-icon{font-size:28px;margin-bottom:10px}
+
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--c-accent);color:#fff;padding:11px 18px;border-radius:var(--r);font-size:13px;font-weight:500;transform:translateY(60px);opacity:0;transition:all .25s;z-index:200;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+  .toast.show{transform:translateY(0);opacity:1}
+
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+  .stat-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:8px;padding:16px}
+  .stat-num{font-size:26px;font-weight:600;font-family:var(--fm)}
+  .stat-label{font-size:11px;color:var(--c-text3);font-weight:500;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+  .trunc{max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .hint{font-size:11px;color:var(--c-text3);margin-top:2px}
+</style>
+</head>
+<body>
+
+<div class="app-wrap">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">FinCtrl</div>
+      <div class="sidebar-title">Contas a Pagar</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Visão Geral</div>
+      <button class="nav-item active" onclick="nav('dashboard')">
+        <span class="nav-icon">▦</span> Dashboard
+      </button>
+      <button class="nav-item" onclick="nav('despesas')">
+        <span class="nav-icon">◈</span> Despesas Mensais
+      </button>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Cadastros</div>
+      <button class="nav-item" onclick="nav('fornecedores')">
+        <span class="nav-icon">◉</span> Fornecedores
+      </button>
+      <button class="nav-item" onclick="nav('tipos')">
+        <span class="nav-icon">◧</span> Tipos de Despesa
+      </button>
+      <button class="nav-item" onclick="nav('empresas')">
+        <span class="nav-icon">◫</span> Empresas
+      </button>
+      <button class="nav-item" onclick="nav('regras')">
+        <span class="nav-icon">◐</span> Regras de Pagamento
+      </button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="page-title" id="pt">Dashboard</div>
+        <div class="page-sub" id="ps">Visão geral do sistema</div>
+      </div>
+      <button class="btn btn-primary" id="addBtn" onclick="openAdd()" style="display:none">+ Adicionar</button>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Novo Registro</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveModal()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Dados iniciais ────────────────────────────────────────────
+const db = {
+  fornecedores: [
+    { id: 1, nome: 'Energisa',   email: 'financeiro@energisa.com.br', cnpj: '00.864.214/0001-06', empresaIds: [1] },
+    { id: 2, nome: 'Vivo Fibra', email: 'pj@vivo.com.br',            cnpj: '02.558.157/0001-62', empresaIds: [1, 2] }
+  ],
+  tipos: [
+    { id: 1, nome: 'Energia Elétrica', obs: 'Conta mensal de energia elétrica' },
+    { id: 2, nome: 'Internet',         obs: 'Mensalidade do plano de fibra óptica' }
+  ],
+  empresas: [
+    { id: 1, nome: 'Empresa Alpha Ltda' },
+    { id: 2, nome: 'Beta Comércio S/A' }
+  ],
+  regras: [
+    { id: 1, nome: 'Boleto 5 dias úteis', desc: 'Pagar até 5 dias úteis antes do vencimento' },
+    { id: 2, nome: 'Débito Automático',   desc: 'Cobrança por débito automático em conta corrente' }
+  ],
+  despesas: [
+    { id: 1, fornecedorId: 1, tipoId: 1, empresaId: 1, vencimento: 10, doc: '', email: 'financeiro@energisa.com.br', obs: 'Conta mensal de energia elétrica', regraId: 1 },
+    { id: 2, fornecedorId: 2, tipoId: 2, empresaId: 1, vencimento: 15, doc: '', email: 'pj@vivo.com.br',            obs: 'Mensalidade do plano de fibra',    regraId: 2 },
+    { id: 3, fornecedorId: 2, tipoId: 2, empresaId: 2, vencimento: 10, doc: '', email: 'pj@vivo.com.br',            obs: 'Mensalidade do plano de fibra',    regraId: 1 }
+  ]
+};
+
+const nextId = { fornecedores: 3, tipos: 3, empresas: 3, regras: 3, despesas: 4 };
+let curPage = 'dashboard', editId = null, editSection = null;
+
+// Filtros de despesas
+let fEmp = 0, fVencDe = '', fVencAte = '';
+
+// ── Helpers ───────────────────────────────────────────────────
+function byId(arr, id) { return arr.find(x => x.id === id); }
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+// Paleta de cores para tags de empresa (por índice)
+const TAG_COLORS = [
+  {bg:'#e8f0fa',c:'#1a3a5c'},{bg:'#e8f2ec',c:'#1a4a2e'},{bg:'#fdf5e8',c:'#7a4a0a'},
+  {bg:'#fdf0f0',c:'#8b2222'},{bg:'#f3e8fd',c:'#4a1a7a'},{bg:'#e8fdfc',c:'#0a5c58'}
+];
+function empColor(empId) {
+  const idx = db.empresas.findIndex(e => e.id === empId);
+  return TAG_COLORS[idx % TAG_COLORS.length] || TAG_COLORS[0];
+}
+function empTag(empId) {
+  const e = byId(db.empresas, empId);
+  if (!e) return '';
+  const col = empColor(empId);
+  return `<span class="badge" style="background:${col.bg};color:${col.c};border:1px solid ${col.c}22">${esc(e.nome)}</span>`;
+}
+
+// ── Navegação ─────────────────────────────────────────────────
+function nav(p) {
+  curPage = p;
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => {
+    const txt = b.textContent.trim().toLowerCase();
+    const map = { dashboard:'dashboard', despesas:'despesas mensais', fornecedores:'fornecedor', tipos:'tipos', empresas:'empresa', regras:'regras' };
+    if ((map[p]||'') && txt.includes(map[p])) b.classList.add('active');
+  });
+  const titles = {
+    dashboard:    ['Dashboard','Visão geral do sistema'],
+    despesas:     ['Despesas Mensais','Gerencie suas contas a pagar'],
+    fornecedores: ['Fornecedores','Cadastro de fornecedores'],
+    tipos:        ['Tipos de Despesa','Categorias de despesas'],
+    empresas:     ['Empresas','Cadastro de empresas'],
+    regras:       ['Regras de Pagamento','Políticas de pagamento']
+  };
+  const t = titles[p] || ['',''];
+  document.getElementById('pt').textContent = t[0];
+  document.getElementById('ps').textContent = t[1];
+  document.getElementById('addBtn').style.display = p === 'dashboard' ? 'none' : 'inline-flex';
+  render();
+}
+
+// ── Render principal ──────────────────────────────────────────
+function render() {
+  const c = document.getElementById('content');
+  if      (curPage === 'dashboard')    c.innerHTML = renderDash();
+  else if (curPage === 'fornecedores') c.innerHTML = renderFornecedores();
+  else if (curPage === 'tipos')        c.innerHTML = renderList('tipos', ['Nome','Observação Padrão'], r=>[esc(r.nome), esc(r.obs)]);
+  else if (curPage === 'empresas')     c.innerHTML = renderList('empresas', ['Nome da Empresa','Despesas Vinculadas'],
+    r => [esc(r.nome), `<span class="badge badge-blue">${db.despesas.filter(d=>d.empresaId===r.id).length} despesa(s)</span>`]);
+  else if (curPage === 'regras')       c.innerHTML = renderList('regras', ['Nome da Regra','Descrição'], r=>[esc(r.nome), esc(r.desc)]);
+  else if (curPage === 'despesas')     c.innerHTML = renderDespesas();
+}
+
+// ── Dashboard ─────────────────────────────────────────────────
+function renderDash() {
+  const venc10 = db.despesas.filter(d => d.vencimento <= 10).length;
+  const empRows = db.empresas.map(e => {
+    const ds = db.despesas.filter(d => d.empresaId === e.id);
+    const col = empColor(e.id);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--c-border)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="badge" style="background:${col.bg};color:${col.c};border:1px solid ${col.c}22">${esc(e.nome)}</span>
+        <span style="font-size:12px;color:var(--c-text3)">${ds.length} despesa(s)</span>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="nav('despesas');setTimeout(()=>setEmpFilter(${e.id}),60)">Ver despesas →</button>
+    </div>`;
+  }).join('');
+  return `<div class="stats-row">
+    <div class="stat-card"><div class="stat-num">${db.despesas.length}</div><div class="stat-label">Despesas mensais</div></div>
+    <div class="stat-card"><div class="stat-num">${db.fornecedores.length}</div><div class="stat-label">Fornecedores</div></div>
+    <div class="stat-card"><div class="stat-num">${db.empresas.length}</div><div class="stat-label">Empresas</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--c-warn)">${venc10}</div><div class="stat-label">Vencem até dia 10</div></div>
+  </div>
+  <div class="card">
+    <h2 style="margin-bottom:4px">Despesas por Empresa</h2>
+    <p style="font-size:12px;color:var(--c-text3);margin-bottom:8px">Clique para visualizar filtrado por empresa</p>
+    ${empRows || '<div style="color:var(--c-text3);font-size:13px;padding:16px 0">Nenhuma empresa cadastrada.</div>'}
+  </div>`;
+}
+
+// ── Fornecedores (com tags de empresa) ────────────────────────
+function renderFornecedores() {
+  const rows = db.fornecedores;
+  return `<div class="card" style="padding:0;overflow:hidden">
+    ${rows.length === 0
+      ? `<div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">Nenhum fornecedor. Clique em "+ Adicionar".</div></div>`
+      : `<div class="table-wrap"><table>
+          <thead><tr>
+            <th>Nome</th><th>E-mail</th><th>CNPJ</th><th>Empresas Vinculadas</th><th style="width:100px">Ações</th>
+          </tr></thead>
+          <tbody>${rows.map(r => `<tr>
+            <td style="font-weight:500">${esc(r.nome)}</td>
+            <td style="font-size:12px;color:var(--c-text2)">${esc(r.email)}</td>
+            <td><span style="font-family:var(--fm);font-size:12px">${esc(r.cnpj)}</span></td>
+            <td>
+              ${r.empresaIds && r.empresaIds.length
+                ? `<div class="tags-wrap">${r.empresaIds.map(eid => empTag(eid)).join('')}</div>`
+                : `<span style="color:var(--c-text3);font-size:12px">Nenhuma</span>`}
+            </td>
+            <td><div style="display:flex;gap:4px">
+              <button class="btn btn-secondary btn-sm" onclick="openEdit('fornecedores',${r.id})">Editar</button>
+              <button class="btn btn-danger btn-sm" onclick="del('fornecedores',${r.id})">✕</button>
+            </div></td>
+          </tr>`).join('')}</tbody>
+        </table></div>`}
+  </div>`;
+}
+
+// ── Lista genérica ────────────────────────────────────────────
+function renderList(sec, cols, rowFn) {
+  const rows = db[sec];
+  return `<div class="card" style="padding:0;overflow:hidden">
+    ${rows.length === 0
+      ? `<div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">Nenhum registro ainda.<br>Clique em "+ Adicionar" para começar.</div></div>`
+      : `<div class="table-wrap"><table>
+          <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}<th style="width:100px">Ações</th></tr></thead>
+          <tbody>${rows.map(r=>`<tr>
+            ${rowFn(r).map(v=>`<td>${v}</td>`).join('')}
+            <td><div style="display:flex;gap:4px">
+              <button class="btn btn-secondary btn-sm" onclick="openEdit('${sec}',${r.id})">Editar</button>
+              <button class="btn btn-danger btn-sm" onclick="del('${sec}',${r.id})">✕</button>
+            </div></td>
+          </tr>`).join('')}</tbody>
+        </table></div>`}
+  </div>`;
+}
+
+// ── Despesas Mensais ──────────────────────────────────────────
+function setEmpFilter(id) {
+  fEmp = id;
+  const s = document.getElementById('fEmpSel');
+  if (s) s.value = id;
+}
+
+function renderDespesas() {
+  const empOpts = db.empresas.map(e =>
+    `<option value="${e.id}" ${fEmp==e.id?'selected':''}>${esc(e.nome)}</option>`).join('');
+
+  // Aplicar filtros
+  let filtered = [...db.despesas];
+  if (fEmp > 0) filtered = filtered.filter(d => d.empresaId == fEmp);
+  const vDe  = fVencDe  !== '' ? +fVencDe  : null;
+  const vAte = fVencAte !== '' ? +fVencAte : null;
+  if (vDe  !== null) filtered = filtered.filter(d => d.vencimento >= vDe);
+  if (vAte !== null) filtered = filtered.filter(d => d.vencimento <= vAte);
+
+  // Ordenar por vencimento
+  filtered.sort((a,b) => a.vencimento - b.vencimento);
+
+  const rows = filtered.map(d => {
+    const f = byId(db.fornecedores, d.fornecedorId);
+    const t = byId(db.tipos, d.tipoId);
+    const e = byId(db.empresas, d.empresaId);
+    const r = byId(db.regras, d.regraId);
+    const vClass = d.vencimento <= 5 ? 'color:var(--c-danger);font-weight:600'
+                 : d.vencimento <= 10 ? 'color:var(--c-warn);font-weight:500' : '';
+    return `<tr>
+      <td style="font-weight:500">${f ? esc(f.nome) : '—'}</td>
+      <td>${t ? `<span class="badge badge-green">${esc(t.nome)}</span>` : '—'}</td>
+      <td>${e ? empTag(e.id) : '—'}</td>
+      <td><span style="font-family:var(--fm);font-size:12px;background:var(--c-surface2);padding:2px 8px;border-radius:4px;${vClass}">dia ${d.vencimento}</span></td>
+      <td>${d.doc ? `<a href="${esc(d.doc)}" style="color:var(--c-tag);font-size:12px" target="_blank">Ver ↗</a>` : `<span style="color:var(--c-text3);font-size:12px">—</span>`}</td>
+      <td class="trunc" title="${esc(d.email)}"><span style="font-size:12px;color:var(--c-text2)">${esc(d.email)||'—'}</span></td>
+      <td class="trunc" title="${esc(d.obs)}"><span style="font-size:12px">${esc(d.obs)||'—'}</span></td>
+      <td>${r ? `<span class="badge badge-warn">${esc(r.nome)}</span>` : '—'}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn btn-secondary btn-sm" onclick="openEdit('despesas',${d.id})">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="del('despesas',${d.id})">✕</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="filter-bar">
+    <div class="filter-group">
+      <label>Empresa</label>
+      <select id="fEmpSel" onchange="fEmp=+this.value;render()">
+        <option value="0">Todas as empresas</option>${empOpts}
+      </select>
+    </div>
+    <div class="filter-divider"></div>
+    <div class="filter-group">
+      <label>Vencimento — dia</label>
+      <div class="filter-range-wrap">
+        <input type="number" id="fVDe"  min="1" max="31" placeholder="De" value="${fVencDe}"
+          onchange="fVencDe=this.value;render()" style="min-width:65px;max-width:72px">
+        <span>até</span>
+        <input type="number" id="fVAte" min="1" max="31" placeholder="Até" value="${fVencAte}"
+          onchange="fVencAte=this.value;render()" style="min-width:65px;max-width:72px">
+      </div>
+    </div>
+    <div class="filter-group" style="justify-content:flex-end">
+      <label>&nbsp;</label>
+      <button class="btn btn-secondary btn-sm" onclick="fEmp=0;fVencDe='';fVencAte='';render()">Limpar filtros</button>
+    </div>
+    <div class="filter-result">${filtered.length} registro(s) encontrado(s)</div>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    ${filtered.length === 0
+      ? `<div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">Nenhuma despesa encontrada com esses filtros.</div></div>`
+      : `<div class="table-wrap"><table>
+          <thead><tr>
+            <th>Fornecedor</th><th>Tipo de Despesa</th><th>Empresa</th>
+            <th>Vencimento</th><th>Documento</th><th>E-mail</th>
+            <th>Observação</th><th>Regra de Pagamento</th><th>Ações</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`}
+  </div>`;
+}
+
+// ── Modal ─────────────────────────────────────────────────────
+function openAdd()          { editId = null; editSection = curPage; openModal(); }
+function openEdit(sec, id)  { editId = id;   editSection = sec;     openModal(); }
+
+function openModal() {
+  const sec = editSection;
+  const rec = editId ? byId(db[sec], editId) : null;
+  document.getElementById('modalTitle').textContent = editId ? 'Editar Registro' : 'Novo Registro';
+
+  let body = '';
+
+  if (sec === 'fornecedores') {
+    const checkboxes = db.empresas.map(e => {
+      const checked = rec && rec.empresaIds && rec.empresaIds.includes(e.id) ? 'checked' : '';
+      const col = empColor(e.id);
+      return `<label class="emp-check-item">
+        <input type="checkbox" name="empIds" value="${e.id}" ${checked}>
+        <span class="badge" style="background:${col.bg};color:${col.c};border:1px solid ${col.c}22;font-size:12px">${esc(e.nome)}</span>
+      </label>`;
+    }).join('');
+    body = `<div class="form-grid">
+      <div class="form-group form-full">
+        <label>Nome do Fornecedor *</label>
+        <input id="f_nome" value="${esc(rec?rec.nome:'')}" placeholder="Ex: Energisa">
+      </div>
+      <div class="form-group">
+        <label>E-mail</label>
+        <input id="f_email" type="email" value="${esc(rec?rec.email:'')}" placeholder="email@fornecedor.com">
+      </div>
+      <div class="form-group">
+        <label>CNPJ</label>
+        <input id="f_cnpj" value="${esc(rec?rec.cnpj:'')}" placeholder="00.000.000/0000-00">
+      </div>
+      <div class="form-group form-full">
+        <label>Empresas vinculadas</label>
+        ${db.empresas.length === 0
+          ? `<div style="font-size:12px;color:var(--c-text3);padding:6px 0">Nenhuma empresa cadastrada ainda.</div>`
+          : `<div class="emp-check-list">${checkboxes}</div>`}
+        <div class="hint">Marque todas as empresas que utilizam este fornecedor</div>
+      </div>
+    </div>`;
+
+  } else if (sec === 'tipos') {
+    body = `<div class="form-grid col1">
+      <div class="form-group">
+        <label>Nome da Despesa *</label>
+        <input id="t_nome" value="${esc(rec?rec.nome:'')}" placeholder="Ex: Energia Elétrica">
+      </div>
+      <div class="form-group">
+        <label>Observação Padrão</label>
+        <textarea id="t_obs" placeholder="Descreva a observação padrão...">${esc(rec?rec.obs:'')}</textarea>
+      </div>
+    </div>`;
+
+  } else if (sec === 'empresas') {
+    body = `<div class="form-group">
+      <label>Nome da Empresa *</label>
+      <input id="e_nome" value="${esc(rec?rec.nome:'')}" placeholder="Ex: Alpha Comercial Ltda">
+    </div>`;
+
+  } else if (sec === 'regras') {
+    body = `<div class="form-grid col1">
+      <div class="form-group">
+        <label>Nome da Regra *</label>
+        <input id="r_nome" value="${esc(rec?rec.nome:'')}" placeholder="Ex: Boleto 5 dias úteis">
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <textarea id="r_desc" placeholder="Descreva a regra de pagamento...">${esc(rec?rec.desc:'')}</textarea>
+      </div>
+    </div>`;
+
+  } else if (sec === 'despesas') {
+    // Ao selecionar empresa, filtra fornecedores vinculados
+    const eOpts = db.empresas.map(e =>
+      `<option value="${e.id}" ${rec&&rec.empresaId===e.id?'selected':''}>${esc(e.nome)}</option>`).join('');
+    const selEmpId = rec ? rec.empresaId : (db.empresas[0]||{}).id;
+    const fornFiltrados = db.fornecedores.filter(f => !f.empresaIds || f.empresaIds.length===0 || f.empresaIds.includes(selEmpId));
+    const fOpts = fornFiltrados.map(f =>
+      `<option value="${f.id}" ${rec&&rec.fornecedorId===f.id?'selected':''}>${esc(f.nome)}</option>`).join('');
+    const tOpts = db.tipos.map(t =>
+      `<option value="${t.id}" ${rec&&rec.tipoId===t.id?'selected':''}>${esc(t.nome)}</option>`).join('');
+    const rgOpts = db.regras.map(r =>
+      `<option value="${r.id}" ${rec&&rec.regraId===r.id?'selected':''}>${esc(r.nome)}</option>`).join('');
+
+    body = `<div class="form-grid">
+      <div class="form-group">
+        <label>Empresa *</label>
+        <select id="d_emp" onchange="updateFornSelect()">${eOpts}</select>
+        <div class="hint">Selecionar a empresa filtra os fornecedores disponíveis</div>
+      </div>
+      <div class="form-group">
+        <label>Fornecedor *</label>
+        <select id="d_forn" onchange="fillEmailObs()">${fOpts||'<option value="">Nenhum fornecedor vinculado</option>'}</select>
+      </div>
+      <div class="form-group">
+        <label>Tipo de Despesa *</label>
+        <select id="d_tipo" onchange="fillEmailObs()">${tOpts}</select>
+      </div>
+      <div class="form-group">
+        <label>Dia de Vencimento *</label>
+        <input id="d_venc" type="number" min="1" max="31" value="${rec?rec.vencimento:''}" placeholder="Ex: 10">
+      </div>
+      <div class="form-group">
+        <label>Link do Documento</label>
+        <input id="d_doc" value="${esc(rec?rec.doc:'')}" placeholder="https://...">
+      </div>
+      <div class="form-group">
+        <label>E-mail Associado</label>
+        <input id="d_email" type="email" value="${esc(rec?rec.email:'')}" placeholder="email@...">
+      </div>
+      <div class="form-group form-full">
+        <label>Regra de Pagamento</label>
+        <select id="d_regra">
+          <option value="">— Selecione uma regra —</option>${rgOpts}
+        </select>
+      </div>
+      <div class="form-group form-full">
+        <label>Observação</label>
+        <textarea id="d_obs" placeholder="Observação sobre esta despesa...">${esc(rec?rec.obs:'')}</textarea>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modal').classList.add('open');
+}
+
+// Atualiza lista de fornecedores ao trocar empresa no modal de despesa
+function updateFornSelect() {
+  const empId = +document.getElementById('d_emp').value;
+  const fornFiltrados = db.fornecedores.filter(f => !f.empresaIds || f.empresaIds.length===0 || f.empresaIds.includes(empId));
+  const sel = document.getElementById('d_forn');
+  sel.innerHTML = fornFiltrados.length
+    ? fornFiltrados.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('')
+    : '<option value="">Nenhum fornecedor vinculado</option>';
+  fillEmailObs();
+}
+
+function fillEmailObs() {
+  if (editId) return;
+  const fEl = document.getElementById('d_forn');
+  const tEl = document.getElementById('d_tipo');
+  if (!fEl || !tEl) return;
+  const f = byId(db.fornecedores, +fEl.value);
+  const t = byId(db.tipos, +tEl.value);
+  if (f) document.getElementById('d_email').value = f.email || '';
+  if (t) document.getElementById('d_obs').value   = t.obs   || '';
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+function saveModal() {
+  const sec = editSection;
+  let obj = {};
+
+  if (sec === 'fornecedores') {
+    const n = document.getElementById('f_nome').value.trim();
+    if (!n) { showToast('Nome é obrigatório','err'); return; }
+    const checks = document.querySelectorAll('input[name=empIds]:checked');
+    const empIds = Array.from(checks).map(c => +c.value);
+    obj = { nome: n, email: document.getElementById('f_email').value.trim(), cnpj: document.getElementById('f_cnpj').value.trim(), empresaIds: empIds };
+
+  } else if (sec === 'tipos') {
+    const n = document.getElementById('t_nome').value.trim();
+    if (!n) { showToast('Nome é obrigatório','err'); return; }
+    obj = { nome: n, obs: document.getElementById('t_obs').value.trim() };
+
+  } else if (sec === 'empresas') {
+    const n = document.getElementById('e_nome').value.trim();
+    if (!n) { showToast('Nome é obrigatório','err'); return; }
+    obj = { nome: n };
+
+  } else if (sec === 'regras') {
+    const n = document.getElementById('r_nome').value.trim();
+    if (!n) { showToast('Nome é obrigatório','err'); return; }
+    obj = { nome: n, desc: document.getElementById('r_desc').value.trim() };
+
+  } else if (sec === 'despesas') {
+    const v = +document.getElementById('d_venc').value;
+    if (!v || v < 1 || v > 31) { showToast('Informe um dia de vencimento válido (1–31)','err'); return; }
+    const fId = +document.getElementById('d_forn').value;
+    const tId = +document.getElementById('d_tipo').value;
+    const eId = +document.getElementById('d_emp').value;
+    if (!fId) { showToast('Selecione um fornecedor','err'); return; }
+    if (!tId) { showToast('Selecione um tipo de despesa','err'); return; }
+    if (!eId) { showToast('Selecione uma empresa','err'); return; }
+    obj = {
+      fornecedorId: fId, tipoId: tId, empresaId: eId, vencimento: v,
+      doc:   document.getElementById('d_doc').value.trim(),
+      email: document.getElementById('d_email').value.trim(),
+      obs:   document.getElementById('d_obs').value.trim(),
+      regraId: +document.getElementById('d_regra').value || null
+    };
+  }
+
+  if (editId) {
+    Object.assign(byId(db[sec], editId), obj);
+    showToast('Registro atualizado!');
+  } else {
+    obj.id = nextId[sec]++;
+    db[sec].push(obj);
+    showToast('Registro salvo!');
+  }
+  closeModal();
+  render();
+}
+
+function del(sec, id) {
+  if (!confirm('Deseja excluir este registro?')) return;
+  db[sec] = db[sec].filter(x => x.id !== id);
+  render();
+  showToast('Registro excluído.');
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = type === 'err' ? 'var(--c-danger)' : 'var(--c-accent)';
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+document.getElementById('modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+render();
+</script>
+</body>
+</html>
