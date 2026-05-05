@@ -534,7 +534,7 @@ function openModal(){
     const fOpts=fornF.map(f=>`<option value="${f.id}" ${rec&&rec.fornecedorId===f.id?'selected':''}>${esc(f.nome)}</option>`).join('');
     const tOpts=db.tipos.map(t=>`<option value="${t.id}" ${rec&&rec.tipoId===t.id?'selected':''}>${esc(t.nome)}</option>`).join('');
     const rgOpts=db.regras.map(r=>`<option value="${r.id}" ${rec&&rec.regraId===r.id?'selected':''}>${esc(r.nome)}</option>`).join('');
-    const vf=rec&&rec.valor?Number(rec.valor).toFixed(2):'';
+    const vf=rec&&rec.valor&&+rec.valor>0?Number(rec.valor).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
     body=`<div class="form-grid">
       <div class="form-group"><label>Empresa *</label>
         <select id="d_emp" onchange="updateFornSelect()">${eOpts}</select>
@@ -550,8 +550,8 @@ function openModal(){
         <input id="d_venc" type="number" min="1" max="31" value="${rec?rec.vencimento:''}" placeholder="Ex: 10">
       </div>
       <div class="form-group"><label>Valor Mensal (R$)</label>
-        <input id="d_valor" type="number" min="0" step="0.01" value="${vf}" placeholder="0,00">
-        <div class="hint">Deixe 0 se o valor varia todo mês</div>
+        <input id="d_valor" type="text" inputmode="decimal" value="${vf}" placeholder="Ex: 3.000,00">
+        <div class="hint">Use vírgula para centavos. Deixe em branco se variável.</div>
       </div>
       <div class="form-group"><label>Regra de Pagamento</label>
         <select id="d_regra"><option value="">— Nenhuma —</option>${rgOpts}</select>
@@ -613,7 +613,7 @@ async function saveModal(){
     if(!fId){showToast('Selecione um fornecedor','err');return;}
     if(!tId){showToast('Selecione um tipo','err');return;}
     if(!eId){showToast('Selecione uma empresa','err');return;}
-    const val=parseFloat(document.getElementById('d_valor').value)||0;
+    const valorRaw=document.getElementById('d_valor').value.trim().replace(/\./g,'').replace(',','.');const val=parseFloat(valorRaw)||0;
     obj={fornecedorId:fId,tipoId:tId,empresaId:eId,vencimento:v,valor:val,
       doc:document.getElementById('d_doc').value.trim(),
       email:document.getElementById('d_email').value.trim(),
